@@ -1,69 +1,101 @@
-// ---------------------------------------------------------------------------
-// Example NewPing library sketch that does a ping about 20 times per second.
-// ---------------------------------------------------------------------------
-
-
+#include <NewPing.h>
 #include <PololuLedStrip.h>
+#include <assert.h>
 
-// Create an ledStrip object and specify the pin it will use.
-PololuLedStrip<13> ledStrip;
+#define TRIGGER_PIN  12
+#define ECHO_PIN     11
+#define BUZZER_PIN   5
 
-// Create a buffer for holding the colors (3 bytes per color).
 #define LED_COUNT 60
+#define MAX_DISTANCE 200
+#define MAX_BUZZ 6
+
+#define requires(expr) assert(expr)
+#define ensures(expr)  assert(expr)
+
+PololuLedStrip<13> led_strip;
+NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE);
 rgb_color colors[LED_COUNT];
 
-
-#include <NewPing.h>
-
-#define TRIGGER_PIN  12  // Arduino pin tied to trigger pin on the ultrasonic sensor.
-#define ECHO_PIN     11  // Arduino pin tied to echo pin on the ultrasonic sensor.
-#define MAX_DISTANCE 200 // Maximum distance we want to ping for (in centimeters). Maximum sensor distance is rated at 400-500cm.
-
-NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE); // NewPing setup of pins and maximum distance.
-const int BLUELED = 4;
-const int REDLED = 5;
-const int WAITTIME = 1000;
-int eventTimer = 0;
-const int BUZZERPIN = 5;
+void fill(uint8_t r, uint8_t g, uint8_t b);
 
 void setup() {
-  Serial.begin(9600); // Open serial monitor at 115200 baud to see ping results.
-  pinMode(BLUELED, OUTPUT);
-  pinMode(REDLED, OUTPUT);
+  Serial.begin(115200);
+  pinMode(BUZZER_PIN, OUTPUT);
 }
 
+/**
+ * @brief Main routine
+ */
 void loop() {
-  delay(50);                     // Wait 50ms between pings (about 20 pings/sec). 29ms should be the shortest delay between pings.
-  Serial.print("Ping: ");
-  float distance = sonar.ping_cm();
-  for (uint16_t i = 0; i < LED_COUNT; i++)
-  {
-    colors[i] = rgb_color(0, 0, 0);
+  delay(100);
+  digitalWrite(BUZZER_PIN, LOW);
+  unsigned int uS = (sonar.ping() / US_ROUNDTRIP_CM);
+  fill(0, 0, 0);
+  while (10 < uS && uS < 60) {
+    fill(255, 0, 0);
+    buzz(uS);
+    uS = (sonar.ping() / US_ROUNDTRIP_CM);
   }
+}
 
-  // Write the colors to the LED strip.
-  ledStrip.write(colors, LED_COUNT);
-  digitalWrite(BUZZERPIN, LOW);
-
-  while (distance < 50) {
-
-    // Update the colors.
-    for (uint16_t i = 0; i < LED_COUNT; i++)
-    {
-      colors[i] = rgb_color(210, 4, 45);
-    }
-
-    // Write the colors to the LED strip.
-    ledStrip.write(colors, LED_COUNT);
-
-    distance = sonar.ping_cm();
-    Serial.print("Ping: ");
-    Serial.print(distance); // Send ping, get distance in cm and print result (0 = outside set distance range)
-    Serial.println("cm");
-
-    digitalWrite(BUZZERPIN, HIGH);
+/**
+ * @brief     Assigns a new rgb value to every element in the color array
+ * @param[in] r Amount of red
+ * @param[in] g Amount of green
+ * @param[in] b Amount of blue
+ */
+void fill(uint8_t r, uint8_t g, uint8_t b) {
+  for (uint16_t i = 0; i < LED_COUNT; i++) {
+     colors[i] = rgb_color(r, g, b);
   }
+  led_strip.write(colors, LED_COUNT);
+}
 
-  Serial.print(distance); // Send ping, get distance in cm and print result (0 = outside set distance range)
-  Serial.println("cm");
+/**
+ * @brief     Activate the buzzer
+ * @param[in] distance
+ * @pre       `distance` is non-negative
+ * @pre       `distance` is less than `MAX_DISTANCE`
+ */
+void buzz(unsigned long distance) {
+  requires(distance < MAX_DISTANCE);
+  int x = MAX_BUZZ - int_log2(distance);
+
+  warn(x);
+}
+
+/**
+ * @brief     Calculate log2 of an integer
+ * @param[in] x
+ * @return    log2(`x`)
+ * @pre       `x` is non-negative
+ */
+int int_log2(int x) {
+  requires(-1 < x);
+
+  int c = 0;
+  if (x == 0) return 1; 
+  while ((x >>= 1)) { c++; }
+  return c;
+}
+
+/**
+ * @brief     Run the buzzer a number of times
+ * @param[in] x The number of times
+ * @pre       `x` is non-negative
+ * @pre       `x` is less than or equal to 7
+ */
+void warn(int x) {
+  requires(-1 < x);
+
+  for (int i = 0; i < x; i++) {
+    Serial.print("buzz ");
+    digitalWrite(BUZZER_PIN, HIGH);
+    delay(50);
+    digitalWrite(BUZZER_PIN, LOW);
+    delay(50);
+  }
+  Serial.println("");
+  delay(500);
 }
