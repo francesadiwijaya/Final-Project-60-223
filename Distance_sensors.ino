@@ -1,26 +1,40 @@
+/**
+ * header comment
+ */
+
 #include <NewPing.h>
 #include <PololuLedStrip.h>
 #include <assert.h>
 
-#define TRIGGER_PIN  12
-#define ECHO_PIN     11
-#define BUZZER_PIN   5
+#define BUZZER_CONTROL_PIN        3
+#define CONTROL_BUTTON_PIN        4
+#define BUZZER_PIN                5
+#define LEFT_ECHO_PIN             11
+#define LEFT_TRIGGER_PIN          12
+#define RIGHT_ECHO_PIN            13
+#define RIGHT_TRIGGER_PIN         14
 
 #define LED_COUNT 60
 #define MAX_DISTANCE 200
-#define MAX_BUZZ 6
+#define MAX_BUZZ 8
 
 #define requires(expr) assert(expr)
 #define ensures(expr)  assert(expr)
 
 PololuLedStrip<13> led_strip;
-NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE);
+NewPing sonar_left(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN, MAX_DISTANCE);
+NewPing sonar_right(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN, MAX_DISTANCE);
 rgb_color colors[LED_COUNT];
 
 void fill(uint8_t r, uint8_t g, uint8_t b);
 
+/**
+ * @brief Declare pin modes
+ */
 void setup() {
   Serial.begin(115200);
+  pinMode(CONTROL_BUTTON_PIN, INPUT);
+  pinMode(BUZZER_CONTROL_PIN, INPUT);
   pinMode(BUZZER_PIN, OUTPUT);
 }
 
@@ -29,14 +43,19 @@ void setup() {
  */
 void loop() {
   delay(100);
-  digitalWrite(BUZZER_PIN, LOW);
-  unsigned int uS = (sonar.ping() / US_ROUNDTRIP_CM);
-  fill(0, 0, 0);
-  while (10 < uS && uS < 60) {
-    fill(255, 0, 0);
-    buzz(uS);
-    uS = (sonar.ping() / US_ROUNDTRIP_CM);
+  if (digitalRead(CONTROL_BUTTON_PIN) == HIGH) {
+    unsigned int left_distance = (sonar_left.ping() / US_ROUNDTRIP_CM);
+    unsigned int right_distance = (sonar_right.ping() / US_ROUNDTRIP_CM);
+    while ((10 < left_distance && left_distance < 60) || (10 < right_distance && right_distance < 60)) {
+      if (digitalRead(BUZZER_CONTROL_PIN) == HIGH) {
+        buzz(min(left_distance, right_distance));
+      }
+      fill(255, 0, 0);
+      left_distance  = (sonar_left.ping() / US_ROUNDTRIP_CM);
+      right_distance = (sonar_right.ping() / US_ROUNDTRIP_CM);
+    }
   }
+  cleanup();
 }
 
 /**
@@ -98,4 +117,12 @@ void warn(int x) {
   }
   Serial.println("");
   delay(500);
+}
+
+/**
+ * @brief Turns the buzzer and led strip off
+ */
+void cleanup() {
+  digitalWrite(BUZZER_PIN, LOW);
+  fill(0, 0, 0);
 }
