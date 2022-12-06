@@ -6,13 +6,15 @@
 #include <PololuLedStrip.h>
 #include <assert.h>
 
+#define POTENTIOMETER_PIN         A0
+
 #define BUZZER_CONTROL_PIN        3
 #define CONTROL_BUTTON_PIN        4
 #define BUZZER_PIN                5
+#define RIGHT_ECHO_PIN            9
+#define RIGHT_TRIGGER_PIN         10
 #define LEFT_ECHO_PIN             11
 #define LEFT_TRIGGER_PIN          12
-#define RIGHT_ECHO_PIN            13
-#define RIGHT_TRIGGER_PIN         14
 
 #define LED_COUNT 60
 #define MAX_DISTANCE 200
@@ -26,6 +28,9 @@ NewPing sonar_left(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN, MAX_DISTANCE);
 NewPing sonar_right(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN, MAX_DISTANCE);
 rgb_color colors[LED_COUNT];
 
+unsigned lowerbound = 10;
+unsigned upperbound;
+
 void fill(uint8_t r, uint8_t g, uint8_t b);
 
 /**
@@ -35,6 +40,7 @@ void setup() {
   Serial.begin(115200);
   pinMode(CONTROL_BUTTON_PIN, INPUT);
   pinMode(BUZZER_CONTROL_PIN, INPUT);
+  pinMode(POTENTIOMETER_PIN, INPUT);
   pinMode(BUZZER_PIN, OUTPUT);
 }
 
@@ -43,19 +49,22 @@ void setup() {
  */
 void loop() {
   delay(100);
+  upperbound = map(analogRead(POTENTIOMETER_PIN), 0, 1023, 30, 60);
+  Serial.println(upperbound);
+
   if (digitalRead(CONTROL_BUTTON_PIN) == HIGH) {
+    cleanup();
     unsigned int left_distance = (sonar_left.ping() / US_ROUNDTRIP_CM);
     unsigned int right_distance = (sonar_right.ping() / US_ROUNDTRIP_CM);
-    while ((10 < left_distance && left_distance < 60) || (10 < right_distance && right_distance < 60)) {
+    while ((lowerbound < left_distance && left_distance < upperbound) || (lowerbound < right_distance && right_distance < upperbound)) {
+      fill(255, 0, 0);
       if (digitalRead(BUZZER_CONTROL_PIN) == HIGH) {
         buzz(min(left_distance, right_distance));
       }
-      fill(255, 0, 0);
       left_distance  = (sonar_left.ping() / US_ROUNDTRIP_CM);
       right_distance = (sonar_right.ping() / US_ROUNDTRIP_CM);
     }
   }
-  cleanup();
 }
 
 /**
