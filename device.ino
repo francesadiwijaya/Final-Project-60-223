@@ -1,11 +1,40 @@
 /**
- * header comment
+ * @title <Insert Project Title Here>
+ * @file device.ino
+ * @brief A useful device designed for Jeff Owens
+ * 
+ * 60-223: Introduction to Physical Computing
+ *
+ * The following code initalizes two optical proximity that serve
+ * as eyes of the back of Jeff's wheelchair. If Jeff backs within
+ * a certain distance of object, the led strip will light up and
+ * the buzzer will buzz. The code also gives Jeff the freedom to
+ * adjust the upperbound distance using a potentiometer. 
+ *
+ * @authors Ethan Lu <ethanl2@andrew.cmu.edu>
+ *          Frances Adiwijaya <fda@andrew.cmu.edu>
+ *          Gia Marino <gnmarino@andrew.cmu.edu>
+ *
+ * @mapping
+ *  Arduino Pin |   Role   |   Description   
+ *  ------------|----------|-----------------
+ *      A0         INPUT    Potentiometer
+ *      3          INPUT    Buzzer Control Button
+ *      4          INPUT    Device Control Button
+ *      5          OUTPUT   Buzzer
+ *      9          INPUT    ECHO Pin for Right Sensor
+ *      10         INPUT    TRIGGER Pin for Right Sensor
+ *      11         INPUT    ECHO Pin for Left Sensor
+ *      12         INPUT    TRIGGER Pin for Left Sensor
+ *      13         OUTPUT   LED Strip
  */
 
+/** @brief Import libraries */
 #include <NewPing.h>
 #include <PololuLedStrip.h>
 #include <assert.h>
 
+/** @brief Declare constants */
 #define POTENTIOMETER_PIN         A0
 
 #define BUZZER_CONTROL_PIN        3
@@ -16,10 +45,11 @@
 #define LEFT_ECHO_PIN             11
 #define LEFT_TRIGGER_PIN          12
 
-#define LED_COUNT 60
+#define LED_COUNT     60
 #define MAX_DISTANCE 200
-#define MAX_BUZZ 8
+#define MAX_BUZZ       8
 
+/** @brief Debugging macros */
 #define requires(expr) assert(expr)
 #define ensures(expr)  assert(expr)
 
@@ -29,7 +59,7 @@ NewPing sonar_right(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN, MAX_DISTANCE);
 rgb_color colors[LED_COUNT];
 
 unsigned lowerbound = 10;
-unsigned upperbound;
+unsigned upperbound =  0;
 
 void fill(uint8_t r, uint8_t g, uint8_t b);
 
@@ -37,10 +67,15 @@ void fill(uint8_t r, uint8_t g, uint8_t b);
  * @brief Declare pin modes
  */
 void setup() {
-  Serial.begin(115200);
+  pinMode(RIGHT_ECHO_PIN, INPUT);
+  pinMode(RIGHT_TRIGGER_PIN, INPUT);
+  pinMode(LEFT_ECHO_PIN, INPUT);
+  pinMode(LEFT_TRIGGER_PIN, INPUT);
+
   pinMode(CONTROL_BUTTON_PIN, INPUT);
   pinMode(BUZZER_CONTROL_PIN, INPUT);
   pinMode(POTENTIOMETER_PIN, INPUT);
+
   pinMode(BUZZER_PIN, OUTPUT);
 }
 
@@ -49,13 +84,14 @@ void setup() {
  */
 void loop() {
   delay(100);
-  upperbound = map(analogRead(POTENTIOMETER_PIN), 0, 1023, 30, 60);
-  Serial.println(upperbound);
+  upperbound = map(analogRead(POTENTIOMETER_PIN), 0, 1023, 60, 150);
 
+  cleanup();
   if (digitalRead(CONTROL_BUTTON_PIN) == HIGH) {
-    cleanup();
     unsigned int left_distance = (sonar_left.ping() / US_ROUNDTRIP_CM);
     unsigned int right_distance = (sonar_right.ping() / US_ROUNDTRIP_CM);
+
+    /** Too close to an object */
     while ((lowerbound < left_distance && left_distance < upperbound) || (lowerbound < right_distance && right_distance < upperbound)) {
       fill(255, 0, 0);
       if (digitalRead(BUZZER_CONTROL_PIN) == HIGH) {
@@ -118,13 +154,11 @@ void warn(int x) {
   requires(-1 < x);
 
   for (int i = 0; i < x; i++) {
-    Serial.print("buzz ");
     digitalWrite(BUZZER_PIN, HIGH);
     delay(50);
     digitalWrite(BUZZER_PIN, LOW);
     delay(50);
   }
-  Serial.println("");
   delay(500);
 }
 
